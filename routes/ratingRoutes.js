@@ -8,10 +8,22 @@ router.post("/:movieId", async (req, res) => {
     const { rating } = req.body;
     const { movieId } = req.params;
 
+    // Get user IP
     const ipAddress =
-      req.headers["x-forwarded-for"] || req.socket.remoteAddress;
+      req.headers["x-forwarded-for"]?.split(",")[0] ||
+      req.socket.remoteAddress;
 
-    // Save rating
+    // 🔥 CHECK if this IP already rated this movie
+    const existingRating = await Rating.findOne({
+      movieId,
+      ipAddress,
+    });
+
+    if (existingRating) {
+      return res.json({ message: "You already rated this movie" });
+    }
+
+    // Save new rating
     await Rating.create({
       movieId,
       rating,
@@ -31,10 +43,8 @@ router.post("/:movieId", async (req, res) => {
     });
 
     res.json({ message: "Rating submitted successfully" });
+
   } catch (err) {
-    if (err.code === 11000) {
-      return res.status(400).json({ message: "You already rated this movie" });
-    }
     res.status(500).json({ error: err.message });
   }
 });
