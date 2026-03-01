@@ -8,29 +8,37 @@ router.post("/:movieId", async (req, res) => {
     const { rating } = req.body;
     const { movieId } = req.params;
 
-    // Get user IP
-    const ipAddress =
-      req.headers["x-forwarded-for"]?.split(",")[0] ||
-      req.socket.remoteAddress;
+    // 🔥 REAL CLIENT IP GET
+    let ipAddress =
+      req.headers["x-forwarded-for"] ||
+      req.connection?.remoteAddress ||
+      req.socket?.remoteAddress ||
+      req.ip;
 
-    // 🔥 CHECK if this IP already rated this movie
-    const existingRating = await Rating.findOne({
+    if (ipAddress?.includes(",")) {
+      ipAddress = ipAddress.split(",")[0];
+    }
+
+    ipAddress = ipAddress?.replace("::ffff:", "");
+
+    // 🔥 DUPLICATE CHECK
+    const existing = await Rating.findOne({
       movieId,
       ipAddress,
     });
 
-    if (existingRating) {
+    if (existing) {
       return res.json({ message: "You already rated this movie" });
     }
 
-    // Save new rating
+    // SAVE
     await Rating.create({
       movieId,
       rating,
       ipAddress,
     });
 
-    // Recalculate average
+    // UPDATE AVG
     const ratings = await Rating.find({ movieId });
 
     const totalRatings = ratings.length;
