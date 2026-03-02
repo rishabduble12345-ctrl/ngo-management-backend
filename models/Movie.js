@@ -1,22 +1,36 @@
 const mongoose = require("mongoose");
 
-const movieSchema = new mongoose.Schema({
-  title: { type: String, required: true },
-  type: { type: String, enum: ["movie", "anime"], required: true },
-  description: { type: String, required: true },
-  posterUrl: { type: String },
+const MovieSchema = new mongoose.Schema({
 
-  externalRatings: {
-    imdb: Number,
-    rottenTomatoes: Number,
-    metacritic: Number,
-    crunchyroll: Number,
-  },
+title: { type:String, required:true },
+description: String,
+posterUrl: String,
+type: { type:String, required:true },
 
-  personalRating: Number,
+externalRatings:{
+  imdb:{ type:Number, default:0 },
+  rottenTomatoes:{ type:Number, default:0 },
+  metacritic:{ type:Number, default:0 },
+  prime:{ type:Number, default:0 },
+  netflix:{ type:Number, default:0 },
+  crunchyroll:{ type:Number, default:0 }
+},
 
-  totalRatings: { type: Number, default: 0 },
-  averageRating: { type: Number, default: 0 },
-});
+otakuMeter:{
+  type:Number,
+  default:0
+},
 
-module.exports = mongoose.model("Movie", movieSchema);
+totalRatings:{
+  type:Number,
+  default:0
+},
+
+averageRating:{
+  type:Number,
+  default:0
+}
+
+},{ minimize:false });   // ⭐ IMPORTANT
+
+module.exports = mongoose.model("Movie", MovieSchema);

@@ -6,13 +6,13 @@ require("dotenv").config();
 const multer = require("multer");
 const cloudinary = require("cloudinary").v2;
 
+const Movie = require("./models/Movie");
 const movieRoutes = require("./routes/movieRoutes");
 const ratingRoutes = require("./routes/ratingRoutes");
-const Movie = require("./models/Movie");
 
 const app = express();
 
-// ---------------- Cloudinary ----------------
+// ================= CLOUDINARY =================
 cloudinary.config({
   cloud_name: process.env.CLOUD_NAME,
   api_key: process.env.CLOUD_KEY,
@@ -21,24 +21,29 @@ cloudinary.config({
 
 const upload = multer({ dest: "uploads/" });
 
-// ---------------- Middleware ----------------
-app.use(cors());
+// ================= MIDDLEWARE =================
+// ⭐ FIXED CORS
+app.use(cors({
+  origin: "*",
+  methods: ["GET","POST","PUT","DELETE"],
+  allowedHeaders: ["Content-Type"]
+}));
+
+// ⭐ IMPORTANT FOR NESTED JSON FROM NETLIFY
 app.use(express.json());
+app.use(express.urlencoded({ extended: true }));
 
-// Images serve (local images)
-app.use("/images", express.static("public/images"));
-
-// ---------------- MongoDB ----------------
+// ================= DB =================
 mongoose.connect(process.env.MONGO_URI)
-  .then(() => console.log("MongoDB Connected ✅"))
-  .catch(err => console.log("DB Error:", err));
+  .then(()=>console.log("MongoDB Connected ✅"))
+  .catch(err=>console.log("DB Error:", err));
 
-// ---------------- Test Route ----------------
-app.get("/", (req, res) => {
-  res.send("Movie Rating Backend Running 🚀");
+// ================= TEST =================
+app.get("/", (req,res)=>{
+  res.send("Otaku Meter Backend Running 🚀");
 });
 
-// ---------------- Normal Routes ----------------
+// ================= ROUTES =================
 app.use("/api/movies", movieRoutes);
 app.use("/api/ratings", ratingRoutes);
 
@@ -46,62 +51,110 @@ app.use("/api/ratings", ratingRoutes);
 // 🔐 ADMIN ROUTES
 // =================================================
 
-// ADD MOVIE
-app.post("/api/admin/add", async (req, res) => {
-  try {
-    if (req.body.secret !== process.env.ADMIN_SECRET)
-      return res.status(403).json({ error: "Not allowed ❌" });
 
-    const movie = await Movie.create(req.body.movie);
+// ---------- ADD ----------
+app.post("/api/admin/add", async (req,res)=>{
+  try{
 
-    res.json({ message: "Movie Added Successfully ✅", movie });
-  } catch (err) {
-    res.status(500).json({ error: err.message });
+    if(req.body.secret !== process.env.ADMIN_SECRET)
+      return res.status(403).json({error:"Not allowed ❌"});
+
+    const m = req.body.movie || {};
+
+    const movie = await Movie.create({
+
+      title: m.title,
+      description: m.description,
+      posterUrl: m.posterUrl,
+      type: m.type,
+
+      externalRatings:{
+        imdb: Number(m.externalRatings?.imdb || 0),
+        rottenTomatoes: Number(m.externalRatings?.rottenTomatoes || 0),
+        metacritic: Number(m.externalRatings?.metacritic || 0),
+        prime: Number(m.externalRatings?.prime || 0),
+        netflix: Number(m.externalRatings?.netflix || 0),
+        crunchyroll: Number(m.externalRatings?.crunchyroll || 0)
+      },
+
+      // ⭐ IMPORTANT
+      otakuMeter: Number(m.otakuMeter || 0)
+    });
+
+    res.json({message:"Added Successfully ✅", movie});
+
+  }catch(err){
+    console.log(err);
+    res.status(500).json({error: err.message});
   }
 });
 
-// EDIT MOVIE
-app.put("/api/admin/edit/:id", async (req, res) => {
-  try {
-    if (req.body.secret !== process.env.ADMIN_SECRET)
-      return res.status(403).json({ error: "Not allowed ❌" });
 
-    await Movie.findByIdAndUpdate(req.params.id, req.body.movie);
-    res.json({ message: "Movie Updated ✅" });
-  } catch (err) {
-    res.status(500).json({ error: err.message });
+// ---------- EDIT ----------
+app.put("/api/admin/edit/:id", async (req,res)=>{
+  try{
+
+    if(req.body.secret !== process.env.ADMIN_SECRET)
+      return res.status(403).json({error:"Not allowed ❌"});
+
+    const m = req.body.movie || {};
+
+    await Movie.findByIdAndUpdate(req.params.id,{
+
+      $set:{
+        description: m.description,
+        posterUrl: m.posterUrl,
+        otakuMeter: Number(m.otakuMeter || 0),
+
+        "externalRatings.imdb": Number(m.externalRatings?.imdb || 0),
+        "externalRatings.rottenTomatoes": Number(m.externalRatings?.rottenTomatoes || 0),
+        "externalRatings.metacritic": Number(m.externalRatings?.metacritic || 0),
+        "externalRatings.prime": Number(m.externalRatings?.prime || 0),
+        "externalRatings.netflix": Number(m.externalRatings?.netflix || 0),
+        "externalRatings.crunchyroll": Number(m.externalRatings?.crunchyroll || 0)
+      }
+
+    });
+
+    res.json({message:"Movie Updated ✅"});
+
+  }catch(err){
+    console.log(err);
+    res.status(500).json({error: err.message});
   }
 });
 
-// DELETE MOVIE
-app.delete("/api/admin/delete/:id", async (req, res) => {
-  try {
-    if (req.body.secret !== process.env.ADMIN_SECRET)
-      return res.status(403).json({ error: "Not allowed ❌" });
+
+// ---------- DELETE ----------
+app.delete("/api/admin/delete/:id", async (req,res)=>{
+  try{
+    if(req.body.secret !== process.env.ADMIN_SECRET)
+      return res.status(403).json({error:"Not allowed ❌"});
 
     await Movie.findByIdAndDelete(req.params.id);
-    res.json({ message: "Movie Deleted ✅" });
-  } catch (err) {
-    res.status(500).json({ error: err.message });
+    res.json({message:"Movie Deleted ✅"});
+
+  }catch(err){
+    res.status(500).json({error: err.message});
   }
 });
 
-// UPLOAD POSTER
-app.post("/api/admin/upload", upload.single("poster"), async (req, res) => {
-  try {
-    if (!req.file) return res.status(400).json({ error: "No file uploaded" });
+
+// ---------- POSTER UPLOAD ----------
+app.post("/api/admin/upload", upload.single("poster"), async (req,res)=>{
+  try{
+    if(!req.file)
+      return res.status(400).json({error:"No file uploaded"});
 
     const result = await cloudinary.uploader.upload(req.file.path);
-    res.json({ url: result.secure_url });
+    res.json({url: result.secure_url});
 
-  } catch (err) {
-    res.status(500).json({ error: err.message });
+  }catch(err){
+    res.status(500).json({error: err.message});
   }
 });
 
-// ---------------- PORT ----------------
-const PORT = process.env.PORT || 5000;
 
-app.listen(PORT, () => {
-  console.log(`Server running on port ${PORT}`);
-});
+// ================= PORT =================
+const PORT = process.env.PORT || 5000;
+app.listen(PORT, ()=>console.log(`Server running on ${PORT} 🚀`));

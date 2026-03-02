@@ -2,22 +2,22 @@ const express = require("express");
 const router = express.Router();
 const Movie = require("../models/Movie");
 
-// 🔹 Add Movie (manual)
-router.post("/add", async (req, res) => {
-  try {
-    const movie = new Movie(req.body);
-    await movie.save();
-    res.status(201).json(movie);
-  } catch (err) {
-    res.status(500).json({ error: err.message });
-  }
-});
-
-// 🔹 Get All Movies
+// GET movies or anime
 router.get("/", async (req, res) => {
   try {
-    const movies = await Movie.find().sort({ createdAt: -1 });
-    res.json(movies);
+    const { type } = req.query;
+
+    let data;
+
+    // ⭐ ONLY valid types filter
+    if (type === "movie" || type === "anime") {
+      data = await Movie.find({ type }).sort({ _id: -1 });
+    } else {
+      data = await Movie.find().sort({ _id: -1 });
+    }
+
+    res.json(data);
+
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
